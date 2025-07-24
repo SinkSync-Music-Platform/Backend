@@ -1,11 +1,10 @@
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql" // 또는 "mysql", "sqlite" 등
-  url      = env("DATABASE_URL") // .env에서 읽어옴
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
