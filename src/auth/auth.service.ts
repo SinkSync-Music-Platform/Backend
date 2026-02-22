@@ -1,10 +1,15 @@
 
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { JwtService } from '@nestjs/jwt';
+import { User } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private jwtService: JwtService
+  ) {}
 
   async findOrCreateUser(userData: {
     streaming_platform: string;
@@ -49,4 +54,13 @@ export class AuthService {
       }
     });
   }
+
+   generateJwt(user: User) {
+    return this.jwtService.sign({
+      sub: user.id,
+      platform: user.streamingPlatform,
+      nickname: user.nickname,
+    });
+  }
 }
+

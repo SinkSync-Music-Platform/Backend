@@ -1,10 +1,16 @@
-import { Controller, Get, Redirect, Query, Res, Injectable } from '@nestjs/common';
+import { Controller, Get, Redirect, Query, Res, Inject } from '@nestjs/common';
+import { AuthService } from './auth.service';
+import { UserService } from '../user/user.service'
 import { Response } from 'express';
 import axios from 'axios';
 
 
 @Controller('auth/spotify')
 export class AuthController {
+   constructor(
+    private readonly authService: AuthService,
+    private readonly userService: UserService,
+  ) {}
   @Get('login')
   @Redirect()
   redirectToSpotify() {
@@ -32,7 +38,7 @@ export class AuthController {
 @Get('callback')
 async handleCallback(@Query('code') code: string, @Res() res: Response){
   if(!code) {
-    return res.status(400).send('Authorixation code not found');
+    return res.status(400).send('Authorization code not found');
   }
   const tokenResponse = await axios.post(
     'https://accounts.spotify.com/api/token',
@@ -51,18 +57,32 @@ async handleCallback(@Query('code') code: string, @Res() res: Response){
   );
   const { access_token, refresh_token } = tokenResponse.data;
 
-  // 2. 유저 정보 요청
-    const userProfile = await axios.get('https://api.spotify.com/v1/me', {
-      headers: {
-        Authorization: `Bearer ${access_token}`,
-      },
-    });
+  const userProfile = await axios.get('https://api.spotify.com/v1/me', {
+    headers: {
+      Authorization: `Bearer ${access_token}`,
+    },
+  });
 
-    const user = userProfile.data;
+  const {
+    id: spotifyId,
+    display_name: nickname,
+    email,
+  } = userProfile.data;
 
-    // 3. DB 저장 (추후 Prisma 연동할 부분)
-    // 4. JWT 발급 (추후 구현)
-    // 5. 프런트로 redirect
-    return res.redirect(`http://localhost:5173/oauth-success?name=${user.display_name}`);
+  // 3. 사용자 저장
+  const user = await this.userService.findOrCreateUser(
+    'spotify',
+    spotifyId,
+    nickname,
+    email,
+    access_token,
+    refresh_token,
+  );
+
+  // 4. JWT 발급
+  const jwt = this.authService.generateJwt(user);
+
+  // 5. 프런트로 리디렉션
+  return res.redirect(`http://localhost:5173/oauth-success?token=${jwt}`);
   }
 }
